@@ -425,15 +425,131 @@ nD.addEventListener("click",function(){nF.click()});nD.addEventListener("dragove
 document.getElementById("nypSub").addEventListener("click",function(){if(!document.getElementById("nypName").value.trim()||!document.getElementById("nypPhone").value.trim()){alert("Name and phone required.");return}this.textContent="\u2713 SUBMITTED";this.style.background="var(--amber)";this.style.pointerEvents="none"});
 function addT(f,c){Array.from(f).forEach(function(x){var r=new FileReader();r.onload=function(e){var i=document.createElement("img");i.src=e.target.result;i.className="thumb";c.appendChild(i)};r.readAsDataURL(x)})}
 
-/* ======== AI QUOTE ENGINE v3 - THE BEAST ======== */
-var aS=0,aP=[],aD={name:"",phone:"",email:"",zip:"",services:[],notes:""};
+/* ======== AI QUOTE ENGINE v4 - OPERATOR LOGIC ======== */
+var aS=0,aP=[],aD={name:"",phone:"",email:"",zip:"",services:[],notes:"",access:"Standard",distance:"Short Carry",heavy:"No Heavy Items",disassembly:"None"};
 function eH(s){return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;")}
 function uP(){for(var i=0;i<3;i++){var p=document.getElementById("pip"+i);p.className="ai-pip";if(i<aS)p.classList.add("done");if(i===aS)p.classList.add("on")}}
+function mkSel(id,list,val){return '<select id="'+id+'" style="width:100%;padding:12px 14px;background:var(--base);border:1px solid var(--edge);border-radius:8px;color:var(--t1);font-family:var(--ui);font-size:0.88rem;outline:none">'+list.map(function(x){return '<option '+(x===val?'selected':'')+'>'+x+'</option>'}).join('')+'</select>'}
+function money(n){return '$'+Math.round(n)}
+function rx(t){return new RegExp('(?:^|[^a-z])'+t+'(?:[^a-z]|$)','i')}
+function notesText(){return (aD.notes||'').toLowerCase()}
+function hasWord(t,arr){return arr.some(function(w){return rx(w).test(t)})}
+function detectedItemsFromNotes(t){
+  var defs=[
+    {name:'sofa/couch',keys:['sofa','couch','sectional','loveseat']},
+    {name:'mattress/bed set',keys:['mattress','box spring','bed frame','bed set']},
+    {name:'dresser/nightstand',keys:['dresser','nightstand','desk','cabinet']},
+    {name:'appliance',keys:['fridge','refrigerator','washer','dryer','stove','oven','dishwasher','freezer']},
+    {name:'yard debris',keys:['yard waste','branches','limbs','brush','leaves']},
+    {name:'wood/fence material',keys:['fence','lumber','wood','pallet']},
+    {name:'construction debris',keys:['sheetrock','drywall','demo','demolition','tile','shingles']},
+    {name:'bagged trash',keys:['bags','bagged trash','trash bags']},
+    {name:'tire(s)',keys:['tire','tires']},
+    {name:'television/e-waste',keys:['tv','television','monitor']}
+  ];
+  return defs.filter(function(d){return hasWord(t,d.keys)}).map(function(d){return d.name});
+}
+function localQuoteBrain(){
+  var t=notesText();
+  var detected=detectedItemsFromNotes(t);
+  var isPW=aD.services.indexOf('Pressure Washing')>-1;
+  var isCleanout=aD.services.some(function(s){return s.indexOf('Cleanout')>-1||s.indexOf('Property')>-1});
+  var isDemo=aD.services.indexOf('Light Demolition')>-1;
+  var loadBeds=1;
+  if(isPW) loadBeds=0;
+  else if(isCleanout) loadBeds=4;
+  else if(aD.services.length>=3) loadBeds=2;
+  else if(aP.length>=5) loadBeds=2;
+  else if(aP.length>=3) loadBeds=1.5;
+  if(hasWord(t,['sectional','garage','storage unit','shed'])) loadBeds=Math.max(loadBeds,2.5);
+  if(hasWord(t,['mattress','couch','sofa','dresser','appliance','washer','dryer','fridge'])) loadBeds=Math.max(loadBeds,1.5);
+  if(hasWord(t,['full cleanout','eviction','property cleanout','hoarder'])) loadBeds=Math.max(loadBeds,5);
+  if(hasWord(t,['bags','small pile','few items','curbside'])) loadBeds=Math.max(0.5,loadBeds-0.5);
+  if(hasWord(t,['fence','lumber','wood','tile','sheetrock','demo','construction'])) loadBeds+=0.5;
+  if(hasWord(t,['concrete','brick','dirt','rock','shingles','piano','safe','hot tub'])) loadBeds+=1;
+  if(aD.heavy==='Some Heavy Items') loadBeds+=0.5;
+  if(aD.heavy==='Very Heavy / Dense Load') loadBeds+=1;
+
+  var baseMid=0;
+  if(isPW){
+    baseMid=169;
+  }else{
+    var table=[{max:0.5,mid:95,low:75,high:125,label:'Half pickup bed'},{max:1,mid:145,low:115,high:185,label:'1 pickup bed'},{max:1.5,mid:225,low:175,high:285,label:'1.5 pickup beds'},{max:2,mid:315,low:255,high:395,label:'2 pickup beds'},{max:3,mid:445,low:365,high:565,label:'3 pickup beds'},{max:5,mid:675,low:545,high:845,label:'4-5 pickup beds'},{max:99,mid:995,low:845,high:1295,label:'6+ pickup beds'}];
+    var row=table.find(function(r){return loadBeds<=r.max})||table[table.length-1];
+    baseMid=row.mid;
+  }
+
+  var surcharge=0, labor=[], dump=[];
+  if(aD.access==='Stairs / Upstairs'){surcharge+=65;labor.push('Stairs or upstairs access slows loading and raises labor time.')}
+  if(aD.access==='Backyard / Tight Access'){surcharge+=55;labor.push('Backyard or tight access adds travel time from pile to truck.')}
+  if(aD.access==='Inside Home / Multiple Rooms'){surcharge+=95;labor.push('Multiple interior rooms increase sorting, carry distance, and protection time.')}
+  if(aD.distance==='Medium Carry'){surcharge+=35;labor.push('Medium carry distance between junk and truck.')}
+  if(aD.distance==='Long Carry'){surcharge+=75;labor.push('Long carry distance between junk and truck.')}
+  if(aD.heavy==='Some Heavy Items'){surcharge+=60;dump.push('Heavy items may require 2-man lifts and higher disposal cost.')}
+  if(aD.heavy==='Very Heavy / Dense Load'){surcharge+=140;dump.push('Dense material raises dump weight fast and can change trailer strategy.')}
+  if(aD.disassembly==='Minor Breakdown Needed'){surcharge+=45;labor.push('Minor breakdown or unbolting needed before removal.')}
+  if(aD.disassembly==='Major Breakdown Needed'){surcharge+=120;labor.push('Major disassembly/demo time required before hauling.')}
+  if(hasWord(t,['mattress'])) dump.push('Mattress disposal may carry special dump fees.')
+  if(hasWord(t,['tv','television','monitor'])) dump.push('TV/e-waste should be separated for proper disposal.')
+  if(hasWord(t,['tire','tires'])) dump.push('Tires usually have extra per-item disposal fees.')
+  if(hasWord(t,['paint','chemical','hazmat'])) dump.push('Paint or chemicals may require special handling and are not always included.')
+  if(hasWord(t,['fridge','refrigerator','freezer','ac unit'])) dump.push('Appliances may require separate handling depending on type.')
+
+  var pMid=Math.round(baseMid+surcharge);
+  var pLow=Math.round(pMid*0.82);
+  var pHigh=Math.round(pMid*1.22 + (aD.heavy==='Very Heavy / Dense Load'?40:0));
+  var crew= loadBeds>=4 || aD.access==='Inside Home / Multiple Rooms' ? 3 : 2;
+  var hrs= isPW ? '1-2 hours' : loadBeds<=1 ? '0.5-1.5 hours' : loadBeds<=2 ? '1-2.5 hours' : loadBeds<=4 ? '2-4 hours' : '4-6+ hours';
+  var conf = aP.length>=4 ? 'Medium' : 'Low';
+  var photoQuality = aP.length>=5 ? 'Good — several angles uploaded, but final site confirmation still recommended.' : aP.length>=3 ? 'Fair — enough photos to estimate, but depth/weight may still be hidden.' : 'Poor — limited photo coverage, so this range is conservative until on-site confirmation.';
+  var loadLabel = isPW ? 'n/a' : (loadBeds<=0.5?'Half pickup bed':loadBeds<=1?'1 pickup bed':loadBeds<=1.5?'1.5 pickup beds':loadBeds<=2?'2 pickup beds':loadBeds<=3?'3 pickup beds':loadBeds<=5?'4-5 pickup beds':'6+ pickup beds');
+  var market=Math.round(pHigh*1.28);
+  var items=[];
+  if(isPW){
+    items=[
+      {item:'Pressure washing labor',qty:'crew time',cost:money(pMid*0.6)},
+      {item:'Equipment + surface treatment',qty:'included',cost:money(pMid*0.25)},
+      {item:'Setup + final rinse',qty:'included',cost:money(pMid*0.15)}
+    ];
+  } else {
+    var chosen=detected.slice(0,4);
+    if(!chosen.length){
+      chosen=['mixed household junk','loading labor','hauling','disposal'];
+    }
+    var remaining=pMid;
+    for(var i=0;i<chosen.length;i++){
+      var part = i===chosen.length-1 ? remaining : Math.round(pMid*(i===0?0.34:i===1?0.24:i===2?0.22:0.20));
+      remaining-=part;
+      items.push({item:chosen[i].charAt(0).toUpperCase()+chosen[i].slice(1),qty:'included',cost:money(part)});
+    }
+  }
+  var summaryStart = detected.length ? 'I can make out '+detected.slice(0,3).join(', ')+' from the details provided.' : 'Based on the service selections, notes, and photo count, this looks like a standard junk removal load.';
+  var summary = summaryStart+' I would quote this around '+loadLabel+' with the price mainly driven by volume, loading time, and disposal weight. '+(labor[0]||dump[0]||'Final price is confirmed once the crew sees exact access and hidden weight on-site.');
+  var urgency='We can hold this range for 48 hours. Earlier booking usually gets the better crew window before the week fills up.';
+  return {
+    load_size:loadLabel,
+    price_low:pLow,
+    price_mid:pMid,
+    price_high:pHigh,
+    confidence:conf,
+    est_hours:hrs,
+    crew_size:crew,
+    line_items:items,
+    labor_notes:labor.join(' ')||'Standard ground-level access assumed for this range.',
+    dump_notes:dump.join(' ')||'Standard household disposal assumed in this range.',
+    photo_quality:photoQuality,
+    market_avg:market,
+    summary:summary,
+    scope:['Removal of the material shown/described','Loading and hauling by crew','Disposal/recycling of standard items','Basic sweep-up of cleared area'],
+    urgency:urgency,
+    savings_note:'Estimated against typical local premium-provider pricing.'
+  };
+}
 
 function rAI(){
   uP();var b=document.getElementById("aiBody");
   if(aS===0){
-    b.innerHTML='<div class="ai-t">Photos &amp; Contact</div><div class="ai-st">Show us the job. AI handles the rest.</div><div class="df-row"><div class="df"><label>Name *</label><input type="text" placeholder="John Smith" id="aiN" value="'+eH(aD.name)+'"></div><div class="df"><label>Phone *</label><input type="tel" placeholder="(555) 555-5555" id="aiP" value="'+eH(aD.phone)+'"></div></div><div class="df-row"><div class="df"><label>Email</label><input type="email" placeholder="you@email.com" id="aiE" value="'+eH(aD.email)+'"></div><div class="df"><label>ZIP</label><input type="text" placeholder="36601" id="aiZ" value="'+eH(aD.zip)+'"></div></div><div class="df"><label>Photos *</label><div class="dz" id="aiDZ"><div class="dz-icon">&#8593;</div><p>Upload photos of the job</p><small>More photos = better quote</small><input type="file" multiple accept="image/*" style="display:none" id="aiFI"></div><div class="thumbs" id="aiTH"></div><div class="pc" id="aiPC">'+(aP.length?aP.length+" photo(s)":"")+'</div></div><div class="df"><label>Notes</label><textarea placeholder="Stairs, access issues, heavy items..." id="aiNT">'+eH(aD.notes)+'</textarea></div><div class="ai-nav"><div></div><button class="ai-nx" id="aiNX">Continue &#8594;</button></div>';
+    b.innerHTML='<div class="ai-t">Photos &amp; Job Details</div><div class="ai-st">Upload the job and add the same details a real estimator would ask about.</div><div class="df-row"><div class="df"><label>Name *</label><input type="text" placeholder="John Smith" id="aiN" value="'+eH(aD.name)+'"></div><div class="df"><label>Phone *</label><input type="tel" placeholder="(555) 555-5555" id="aiP" value="'+eH(aD.phone)+'"></div></div><div class="df-row"><div class="df"><label>Email</label><input type="email" placeholder="you@email.com" id="aiE" value="'+eH(aD.email)+'"></div><div class="df"><label>ZIP</label><input type="text" placeholder="36601" id="aiZ" value="'+eH(aD.zip)+'"></div></div><div class="df-row"><div class="df"><label>Access</label>'+mkSel('aiA',['Standard','Stairs / Upstairs','Backyard / Tight Access','Inside Home / Multiple Rooms'],aD.access)+'</div><div class="df"><label>Carry Distance</label>'+mkSel('aiD',['Short Carry','Medium Carry','Long Carry'],aD.distance)+'</div></div><div class="df-row"><div class="df"><label>Weight</label>'+mkSel('aiH',['No Heavy Items','Some Heavy Items','Very Heavy / Dense Load'],aD.heavy)+'</div><div class="df"><label>Breakdown Needed</label>'+mkSel('aiX',['None','Minor Breakdown Needed','Major Breakdown Needed'],aD.disassembly)+'</div></div><div class="df"><label>Photos *</label><div class="dz" id="aiDZ"><div class="dz-icon">&#8593;</div><p>Upload photos of the job</p><small>Wide shots + side angles = better quote</small><input type="file" multiple accept="image/*" style="display:none" id="aiFI"></div><div class="thumbs" id="aiTH"></div><div class="pc" id="aiPC">'+(aP.length?aP.length+" photo(s)":"")+'</div></div><div class="df"><label>Notes</label><textarea placeholder="Stairs, access issues, heavy items..." id="aiNT">'+eH(aD.notes)+'</textarea></div><div class="ai-nav"><div></div><button class="ai-nx" id="aiNX">Continue &#8594;</button></div>';
     var tc=document.getElementById("aiTH");aP.forEach(function(s){var i=document.createElement("img");i.src=s;i.className="thumb";tc.appendChild(i)});
     var dz=document.getElementById("aiDZ"),fi=document.getElementById("aiFI");
     dz.addEventListener("click",function(){fi.click()});dz.addEventListener("dragover",function(e){e.preventDefault();dz.classList.add("over")});dz.addEventListener("dragleave",function(){dz.classList.remove("over")});dz.addEventListener("drop",function(e){e.preventDefault();dz.classList.remove("over");addAF(e.dataTransfer.files)});fi.addEventListener("change",function(){addAF(this.files)});
@@ -447,7 +563,7 @@ function rAI(){
   }else if(aS===2){runQ()}
 }
 function addAF(f){var tc=document.getElementById("aiTH"),pc=document.getElementById("aiPC");Array.from(f).forEach(function(x){var r=new FileReader();r.onload=function(e){aP.push(e.target.result);var i=document.createElement("img");i.src=e.target.result;i.className="thumb";tc.appendChild(i);pc.textContent=aP.length+" photo(s)"};r.readAsDataURL(x)})}
-function sD(){var n=document.getElementById("aiN");if(n)aD.name=n.value;var p=document.getElementById("aiP");if(p)aD.phone=p.value;var e=document.getElementById("aiE");if(e)aD.email=e.value;var z=document.getElementById("aiZ");if(z)aD.zip=z.value;var t=document.getElementById("aiNT");if(t)aD.notes=t.value}
+function sD(){var n=document.getElementById("aiN");if(n)aD.name=n.value;var p=document.getElementById("aiP");if(p)aD.phone=p.value;var e=document.getElementById("aiE");if(e)aD.email=e.value;var z=document.getElementById("aiZ");if(z)aD.zip=z.value;var a=document.getElementById("aiA");if(a)aD.access=a.value;var d=document.getElementById("aiD");if(d)aD.distance=d.value;var h=document.getElementById("aiH");if(h)aD.heavy=h.value;var x=document.getElementById("aiX");if(x)aD.disassembly=x.value;var t=document.getElementById("aiNT");if(t)aD.notes=t.value}
 function gN(){sD();if(aS===0){if(!aD.name.trim()||!aD.phone.trim()){alert("Name and phone required.");return}if(!aP.length){alert("Upload at least one photo.");return}}if(aS===1&&!aD.services.length){alert("Select at least one service.");return}if(aS<2){aS++;rAI()}}
 function gB(){sD();if(aS>0){aS--;rAI()}}
 function W(ms){return new Promise(function(r){setTimeout(r,ms)})}
@@ -482,7 +598,7 @@ async function runQ(){
     var m=resized.match(/^data:(image\/\w+);base64,(.+)$/);
     if(m)ic.push({type:"image",source:{type:"base64",media_type:m[1],data:m[2]}});
   }
-  var sL=aD.services.length?aD.services.join(", "):"General junk removal";var nT=aD.notes||"None";var cN=aD.name||"Customer";
+  var sL=aD.services.length?aD.services.join(", "):"General junk removal";var nT=aD.notes||"None";var cN=aD.name||"Customer";var operatorContext='ACCESS: '+aD.access+'\nCARRY DISTANCE: '+aD.distance+'\nWEIGHT: '+aD.heavy+'\nDISASSEMBLY: '+aD.disassembly;
 
   /* === SCOUT GOAT ESTIMATOR v4 — OWNER'S METHODOLOGY === */
   var pr="ROLE: You are the quoting AI for Scout Goat Services on the Gulf Coast of Alabama. You think exactly like an experienced junk removal operator who has quoted thousands of jobs from photos. You read photos the way the owner does — by estimating volume, labor, weight, access difficulty, and dump risk from what you can see.\n\n"
@@ -605,7 +721,7 @@ async function runQ(){
 
   var ct=ic.slice();ct.push({type:"text",text:pr});
   try{var resp=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:1800,messages:[{role:"user",content:ct}]})});var data=await resp.json();if(data.error)throw new Error(data.error.message);var txt="";data.content.forEach(function(c){if(c.text)txt+=c.text});showQ(JSON.parse(txt.replace(/```json/g,"").replace(/```/g,"").trim()),cN)}
-  catch(err){console.error(err);var ns=aD.services.length;var hasCleanout=aD.services.some(function(s){return s.indexOf("Cleanout")>-1||s.indexOf("Property")>-1});var hasPW=aD.services.indexOf("Pressure Washing")>-1;var hasAppliance=aD.services.indexOf("Appliance Removal")>-1;var pLow=hasCleanout?350:hasPW?129:hasAppliance?125:ns>2?250:ns>0?150:120;var pHigh=hasCleanout?600:hasPW?299:hasAppliance?275:ns>2?475:ns>0?350:250;var pMid=Math.round((pLow+pHigh)/2);var mktAvg=Math.round(pHigh*1.35);var loadSz=hasCleanout?"4-5 pickup beds":hasPW?"n/a":ns>2?"2-3 pickup beds":ns>0?"1.5 pickup beds":"about 1 pickup bed";var items=[];if(hasCleanout){items.push({item:"Cleanout labor and removal",qty:"full job",cost:"$"+Math.round(pMid*0.45)});items.push({item:"Hauling to disposal",qty:"1-2 trips",cost:"$"+Math.round(pMid*0.25)});items.push({item:"Sorting and organizing",qty:"included",cost:"$"+Math.round(pMid*0.15)});items.push({item:"Final sweep and cleanup",qty:"included",cost:"$"+Math.round(pMid*0.1)});items.push({item:"Dump fees",qty:"included",cost:"$"+Math.round(pMid*0.05)})}else if(hasPW){items.push({item:"Pressure washing service",qty:"estimated area",cost:"$"+Math.round(pMid*0.65)});items.push({item:"Equipment and supplies",qty:"included",cost:"$"+Math.round(pMid*0.2)});items.push({item:"Surface treatment and rinse",qty:"included",cost:"$"+Math.round(pMid*0.15)})}else{items.push({item:"Item removal and loading",qty:aP.length+" photo(s) of items",cost:"$"+Math.round(pMid*0.4)});items.push({item:"Hauling to disposal",qty:"1 trip",cost:"$"+Math.round(pMid*0.25)});items.push({item:"Disposal and recycling",qty:"included",cost:"$"+Math.round(pMid*0.2)});items.push({item:"Site cleanup after removal",qty:"included",cost:"$"+Math.round(pMid*0.15)})}showQ({load_size:loadSz,price_low:pLow,price_mid:pMid,price_high:pHigh,confidence:"Medium",est_hours:hasCleanout?"2-4 hours":hasPW?"1-2 hours":"1-2.5 hours",crew_size:hasCleanout?3:2,line_items:items,labor_notes:hasCleanout?"Full cleanout — crew needs clear path to all areas. Efficiency depends on how packed the space is.":"Based on photos, appears to be standard access. Final assessment on-site.",dump_notes:"Standard household items — normal disposal fees included in quote.",photo_quality:"Fair — can estimate volume but on-site confirmation recommended for final price.",market_avg:mktAvg,summary:"Based on your "+aP.length+" photo(s) and the services you selected ("+sL+"), this looks like "+loadSz+" of material. "+(hasCleanout?"Full cleanout jobs like this typically require a 3-person crew working 2-4 hours.":"Our crew handles jobs like this regularly and can usually complete same-day.")+" Final price locked after on-site confirmation.",scope:["Complete removal of all items shown in photos","Professional loading with care for your property","Hauling to licensed disposal facility","Recycling and donation of qualifying items","Full sweep and cleanup of cleared area","Same-day completion for standard volume"],urgency:"We have 2 crew slots remaining this week. Spring cleanout demand is running 3x normal volume. This quote locks your price for 48 hours.",savings_note:"Save $"+String(mktAvg-pHigh)+" vs the $"+mktAvg+" Gulf Coast average"},cN)}
+  catch(err){console.error(err);showQ(localQuoteBrain(),cN)}
 }
 
 function showQ(q,name){
