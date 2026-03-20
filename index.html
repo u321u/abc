@@ -484,99 +484,136 @@ async function runQ(){
   }
   var sL=aD.services.length?aD.services.join(", "):"General junk removal";var nT=aD.notes||"None";var cN=aD.name||"Customer";
 
-  /* === EXPERT PHOTO ANALYSIS PROMPT === */
-  var pr="ROLE: You are the senior estimator for Scout Goat Services, a junk removal and pressure washing company on the Gulf Coast of Alabama. You have personally quoted over 12,000 jobs. You can look at a photo and instantly identify every item, estimate cubic yards, know the weight class, and price it accurately. You are also an elite closer.\n\n"
-  +"CUSTOMER INFO:\n- Name: "+cN+"\n- Photos: "+aP.length+"\n- Services: "+sL+"\n- Notes: \""+nT+"\"\n\n"
-  +"PHOTO ANALYSIS INSTRUCTIONS (this is critical):\nStudy each photo systematically. For EACH photo:\n"
-  +"1. SCAN LEFT TO RIGHT, TOP TO BOTTOM. Identify every distinct item you can see.\n"
-  +"2. IDENTIFY SPECIFIC ITEMS by name: couches, mattresses, dressers, TVs, washers, dryers, refrigerators, tables, chairs, desks, bed frames, box springs, cardboard boxes, trash bags, lumber, drywall, carpet, tires, grills, lawn equipment, toys, bikes, etc.\n"
-  +"3. ESTIMATE VOLUME: A standard junk removal truck bed is roughly 12 feet long x 8 feet wide x 5 feet high = 480 cubic feet (~18 cubic yards). Estimate what fraction of a truck the visible items would fill:\n"
-  +"   - A couch = ~40-60 cu ft (about 1/10 truck)\n"
-  +"   - A mattress + box spring = ~45 cu ft\n"
-  +"   - A refrigerator = ~25-35 cu ft\n"
-  +"   - A washer or dryer = ~15-20 cu ft each\n"
-  +"   - A pile of misc junk 4ft x 4ft x 4ft = ~64 cu ft\n"
-  +"   - A full garage (2 car) packed floor to ceiling = 2-3 full trucks\n"
-  +"   - A storage unit 10x10 packed = 1-1.5 trucks\n"
-  +"   - A pile of yard debris 6ft wide x 4ft tall x 8ft long = ~192 cu ft (~40% truck)\n"
-  +"4. ASSESS DIFFICULTY: Look for stairs, narrow doorways, long carry distances, items on upper floors, wet/muddy conditions, heavy items (piano, safe, hot tub, concrete), tangled piles that need sorting.\n"
-  +"5. IDENTIFY MATERIALS: Separate general junk from construction debris (drywall, lumber, roofing), yard waste (branches, stumps, brush), appliances (need disconnect?), electronics (e-waste), and hazardous items (paint, chemicals - we don't take these).\n\n"
-  +"PRICING GUIDE (Gulf Coast AL, Spring 2026, all prices INCLUDE dump/disposal fees):\n"
-  +"JUNK REMOVAL BY TRUCK VOLUME:\n"
-  +"- Minimum charge (1-2 small items): $85-120\n"
-  +"- 1/8 truck (a few bags + 1 small item): $120-165\n"
-  +"- 1/4 truck (several items, some boxes): $165-225\n"
-  +"- 1/3 truck (small furniture set or pile): $225-295\n"
-  +"- 1/2 truck (bedroom set, partial room): $295-375\n"
-  +"- 3/4 truck (large room cleanout, multiple items): $375-475\n"
-  +"- Full truck (garage cleanout, storage unit): $475-600\n"
-  +"- 1.5 trucks (large cleanout, packed garage): $600-800\n"
-  +"- 2+ trucks (full property, hoarder, heavy demo): $800-1400\n\n"
-  +"SPECIFIC ITEM PRICING (use these for line_items):\n"
-  +"- Couch/sofa: $50-75\n"
-  +"- Loveseat/recliner: $35-55\n"
-  +"- Mattress + box spring: $45-65\n"
-  +"- Dresser/armoire: $40-60\n"
-  +"- Desk/table: $30-50\n"
-  +"- TV/electronics: $20-35\n"
-  +"- Refrigerator: $65-85 (includes disconnect)\n"
-  +"- Washer or dryer: $50-70 each (includes disconnect)\n"
-  +"- Water heater: $60-80\n"
-  +"- Pile of boxes/bags (per truck-bed section): $40-70\n"
-  +"- Yard debris pile (per cubic yard): $25-45\n"
-  +"- Construction debris (per cubic yard): $35-55\n"
-  +"- Carpet removal (per room): $40-60\n"
-  +"- Misc small items/sorting labor: $30-50/area\n\n"
-  +"PRESSURE WASHING:\n"
+  /* === SCOUT GOAT ESTIMATOR v4 — OWNER'S METHODOLOGY === */
+  var pr="ROLE: You are the quoting AI for Scout Goat Services on the Gulf Coast of Alabama. You think exactly like an experienced junk removal operator who has quoted thousands of jobs from photos. You read photos the way the owner does — by estimating volume, labor, weight, access difficulty, and dump risk from what you can see.\n\n"
+  +"CUSTOMER: "+cN+"\nPHOTOS: "+aP.length+"\nSERVICES: "+sL+"\nNOTES: \""+nT+"\"\n\n"
+
+  +"===== HOW TO READ JUNK REMOVAL PHOTOS =====\n\n"
+
+  +"STEP 1 — ESTIMATE LOAD SIZE IN PICKUP BEDS\n"
+  +"Measure how many standard pickup truck beds (8ft x 5ft x 2ft high) the junk would fill if loaded efficiently. Use these terms:\n"
+  +"- Half a pickup bed (a few bags, one small item)\n"
+  +"- 1 pickup bed (a couch + some bags, or a mattress set + boxes)\n"
+  +"- 1.5 pickup beds (a room worth of furniture + debris)\n"
+  +"- 2 pickup beds (a partial garage, or a large room cleanout)\n"
+  +"- 3 pickup beds (a packed single-car garage or full shed)\n"
+  +"- 4-5 pickup beds (a packed 2-car garage or storage unit)\n"
+  +"- 6+ pickup beds (full property cleanout, hoarder, multi-room)\n\n"
+
+  +"For each photo, ask yourself:\n"
+  +"- How much SPACE does the junk take up? Look at floor/wall area it covers, height of piles, depth behind the front layer.\n"
+  +"- What TYPE of items? Bags, furniture, mattresses, appliances, wood, fence panels, construction debris, yard waste, tires, TVs, paint, etc.\n"
+  +"- How HEAVY does it look? Couches are bulky but light. Dressers are dense. Wet debris is heavier. Fencing and wood add weight fast. Concrete, dirt, and roofing shingles are extremely heavy.\n"
+  +"- TRUCK LOADING EFFICIENCY: Loose junk vs neatly stacked junk changes how much space it really takes. A pile of random items loads at maybe 60-70% efficiency. Furniture stacks better. Bags and boxes pack tight. Brush and branches are the worst — huge volume, light weight, terrible packing.\n\n"
+
+  +"STEP 2 — ADJUST FOR LABOR / ACCESS DIFFICULTY\n"
+  +"Look at the photos for clues about how hard the removal will be:\n"
+  +"- CURBSIDE / DRIVEWAY: Easiest. Truck parks right next to the pile. Minimal carry. This is baseline.\n"
+  +"- INSIDE HOUSE: Harder. Items need to come through doorways, down hallways. Add labor.\n"
+  +"- STAIRS: Significantly harder. Each flight of stairs = major labor increase, especially for heavy furniture/appliances.\n"
+  +"- FENCED YARD / BACKYARD: Moderate. Gate access? How far is the walk to the truck? Look for gates, fence lines, long paths.\n"
+  +"- LONG CARRY DISTANCE: If items are 50+ feet from where the truck can park, add labor.\n"
+  +"- TEARDOWN NEEDED: Sheds, trampolines, fencing, playsets, sectional couches — anything that needs disassembly before removal adds significant time.\n"
+  +"- SORTING REQUIRED: Mixed piles where junk is tangled together, or where some items stay and some go, adds time for careful sorting.\n\n"
+
+  +"STEP 3 — ADJUST FOR DUMP COST / DISPOSAL RISK\n"
+  +"Not all junk costs the same to dump. Look for:\n"
+  +"- STANDARD HOUSEHOLD JUNK: Normal dump fees. Furniture, bags, boxes, general stuff.\n"
+  +"- HEAVY DEBRIS: Construction materials (drywall, lumber, roofing, concrete), dirt, heavy mixed debris. Dumps charge by WEIGHT for this. Much more expensive.\n"
+  +"- RESTRICTED ITEMS that cost extra or require special handling:\n"
+  +"  * Mattresses: $15-25 each surcharge at most dumps\n"
+  +"  * TVs / monitors: $10-20 each e-waste fee\n"
+  +"  * Tires: $5-10 each\n"
+  +"  * Refrigerators / AC units (contain freon): $25-40 each for proper disposal\n"
+  +"  * Paint cans: Hazmat — we may not take these, or charge premium\n"
+  +"  * Concrete / dirt / heavy fill: Charged by ton, very expensive\n"
+  +"  * Yard waste (branches, brush, stumps): Usually cheaper disposal, but terrible truck packing efficiency\n\n"
+
+  +"STEP 4 — BUILD THE QUOTE\n"
+  +"Start with load size, then adjust:\n\n"
+  +"BASE PRICING (Gulf Coast AL, Spring 2026, includes standard dump fees):\n"
+  +"- Half pickup bed: $85-120\n"
+  +"- 1 pickup bed: $120-175\n"
+  +"- 1.5 pickup beds: $175-250\n"
+  +"- 2 pickup beds: $250-350\n"
+  +"- 3 pickup beds: $350-475\n"
+  +"- 4 pickup beds: $475-600\n"
+  +"- 5 pickup beds: $600-750\n"
+  +"- 6+ pickup beds: $750-1200+\n\n"
+
+  +"LABOR ADJUSTMENTS (add to base):\n"
+  +"- Curbside/easy access: +$0\n"
+  +"- Inside house, ground floor: +$25-50\n"
+  +"- Inside house, upstairs: +$50-100\n"
+  +"- Backyard through gate: +$25-50\n"
+  +"- Long carry distance (50+ ft): +$25-75\n"
+  +"- Teardown/disassembly needed: +$50-150 depending on complexity\n"
+  +"- Heavy sorting required: +$25-75\n\n"
+
+  +"DUMP COST ADJUSTMENTS (add to base):\n"
+  +"- All standard household junk: +$0 (included in base)\n"
+  +"- Heavy construction debris: +$50-150 depending on weight\n"
+  +"- Mattresses (each): +$15-25\n"
+  +"- TVs/monitors (each): +$15\n"
+  +"- Tires (each): +$8\n"
+  +"- Refrigerator/freezer with freon: +$30-40\n"
+  +"- Concrete/dirt/heavy fill: +$75-200 (per half truck of heavy material)\n"
+  +"- Yard waste only: -$25 (cheaper disposal)\n\n"
+
+  +"PRESSURE WASHING (if requested):\n"
   +"- Driveway (1-2 car): $129-169\n"
   +"- Driveway (3+ car or long): $169-249\n"
   +"- Sidewalks/walkways: $49-89\n"
   +"- House siding (1 story): $199-299\n"
   +"- House siding (2 story): $299-449\n"
   +"- Deck/patio: $99-199\n"
-  +"- Fence (per 50 linear ft): $75-125\n"
-  +"- Full property bundle: $399-699\n\n"
-  +"SURCHARGES:\n"
-  +"- Stairs (items carried up/down): +$25-50 per flight\n"
-  +"- Long carry (items 50+ ft from truck): +$25-50\n"
-  +"- Tight access (narrow paths, gates): +$25\n"
-  +"- Sorting required (mixed/tangled piles): +$25-50\n"
-  +"- Same-day rush: +$0 (we absorb this as a selling point)\n\n"
-  +"OUTPUT FORMAT - respond ONLY with this JSON (no markdown, no backticks, no other text):\n"
+  +"- Fence (per 50 linear ft): $75-125\n\n"
+
+  +"PHOTO QUALITY ASSESSMENT:\n"
+  +"Good photos that help you quote accurately: wide shot of the whole pile, side angle showing depth, close-up showing item types, photo showing access path to the junk.\n"
+  +"Bad photos that make quoting harder: dark photos, only close-ups with no scale reference, hidden junk behind front layer, mixed debris bags where weight is unknown.\n"
+  +"If photos are poor quality, say so in your summary and lower your confidence. If you can clearly see everything and count items, confidence should be High.\n\n"
+
+  +"===== OUTPUT FORMAT =====\n"
+  +"Respond ONLY with this JSON object. No markdown. No backticks. No explanation.\n\n"
   +"{\n"
-  +"  \"price_low\": (number - best case if job is easier than it looks),\n"
-  +"  \"price_high\": (number - worst case if there is more than visible),\n"
-  +"  \"confidence\": \"High\" if items clearly visible and countable, \"Medium\" if partially obscured or hard to gauge depth, \"Low\" if very unclear photos,\n"
-  +"  \"est_hours\": \"X-Y hours\",\n"
-  +"  \"crew_size\": (number, 2 for most jobs, 3 for large/heavy),\n"
-  +"  \"truck_loads\": (string like \"1/2 truck\" or \"full truck\" or \"1.5 trucks\"),\n"
-  +"  \"line_items\": [{\"item\": \"specific item name\", \"qty\": \"count or description\", \"cost\": \"$XX\"}] (list 4-10 specific items you identified in the photos with individual prices),\n"
-  +"  \"market_avg\": (number - Gulf Coast competitor average, always 30-45% above your price_high. Competitors: 1-800-GOT-JUNK charges $398 for half truck, $598 for full truck. College Hunks charges similar. Local guys are $50-100 cheaper but unreliable.),\n"
-  +"  \"summary\": (2-3 sentences. START by naming the specific items you see. Example: 'I can see a sectional sofa, two mattresses, a broken dresser, and approximately 8-10 trash bags piled near the curb.' Then estimate volume and recommend approach. Sound like a seasoned pro, not a robot.),\n"
-  +"  \"scope\": [5-6 strings describing exactly what is included - be specific to THIS job, not generic],\n"
-  +"  \"urgency\": (1-2 sentences. Reference that you only have X crew slots left this week and spring cleanout season has 3x normal demand. Mention the 48-hour price lock. Make it feel real.),\n"
-  +"  \"savings_note\": (short line comparing to market_avg, e.g. 'Save $180 vs Gulf Coast average')\n"
+  +"  \"load_size\": (string - e.g. \"about 2 pickup beds\" or \"3-4 pickup beds\" — use the pickup bed measurement system),\n"
+  +"  \"price_low\": (number - if everything goes easy, access is simple, no surprises),\n"
+  +"  \"price_mid\": (number - normal expectation for this job),\n"
+  +"  \"price_high\": (number - if hidden weight or access issues show up),\n"
+  +"  \"confidence\": \"High\" / \"Medium\" / \"Low\" (based on photo quality and visibility),\n"
+  +"  \"est_hours\": (string, e.g. \"1.5-2 hours\"),\n"
+  +"  \"crew_size\": (number),\n"
+  +"  \"line_items\": [{\"item\": \"specific item from photo\", \"qty\": \"count\", \"cost\": \"$XX\"}] — list 4-10 SPECIFIC items you identified,\n"
+  +"  \"labor_notes\": (string - describe access situation: curbside? inside? stairs? fenced yard? distance to truck?),\n"
+  +"  \"dump_notes\": (string - any restricted items or heavy debris that affects disposal cost?),\n"
+  +"  \"photo_quality\": (string - rate the photos: \"Good — clear wide shots, can count items\" or \"Fair — can see most items but depth unclear\" or \"Poor — dark/limited angles, hard to gauge full volume\"),\n"
+  +"  \"market_avg\": (number - what 1-800-GOT-JUNK or College Hunks would charge. They charge $398 half truck, $598 full truck. Local competitors are $50-100 less but less reliable.),\n"
+  +"  \"summary\": (2-3 sentences. FIRST sentence: name specific items you see in the photos — prove you looked. SECOND sentence: your volume estimate in pickup beds and what drives the price. THIRD sentence: any access, weight, or disposal factors. Sound like a real estimator talking to the customer, not a robot.),\n"
+  +"  \"scope\": [5-6 strings specific to THIS job],\n"
+  +"  \"urgency\": (1-2 sentences. Crew slots remaining this week, spring demand, 48-hour price lock. Make it concrete.),\n"
+  +"  \"savings_note\": (comparison to market_avg, e.g. \"Save $180 vs Gulf Coast average\")\n"
   +"}\n\n"
-  +"CRITICAL RULES:\n"
-  +"- line_items costs MUST add up to approximately the midpoint between price_low and price_high\n"
-  +"- If you see appliances, list each one separately with disconnect fees included\n"
-  +"- If you see furniture, name each piece (don't say 'misc furniture')\n"
-  +"- If you see piles/bags, estimate count and cubic footage\n"
-  +"- If photos show a garage/shed/room, estimate square footage and how packed it is (25%, 50%, 75%, wall-to-wall)\n"
-  +"- In summary, prove you actually analyzed the photo by naming 3-5 specific things you see\n"
-  +"- NEVER say 'various items' or 'miscellaneous' as a primary description - be specific\n"
-  +"- Your quote should make the customer think 'wow, they actually looked at my photos and understand my job'";
+  +"CRITICAL:\n"
+  +"- line_items costs must roughly add up to price_mid\n"
+  +"- USE the pickup bed measurement in load_size — customers understand this better than cubic yards\n"
+  +"- Name SPECIFIC items from the photos in your summary and line_items. If you see a couch, say couch. If you see a pile of lumber, say lumber. Never say 'various items.'\n"
+  +"- If you spot restricted items (mattresses, TVs, tires, fridges, paint), call them out in dump_notes and factor the surcharges into pricing\n"
+  +"- If access looks difficult (backyard, stairs, long carry), call it out in labor_notes and factor it in\n"
+  +"- Your quote should make the customer think: this company actually looked at my photos and knows exactly what this job involves";
 
 
   var ct=ic.slice();ct.push({type:"text",text:pr});
   try{var resp=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:1800,messages:[{role:"user",content:ct}]})});var data=await resp.json();if(data.error)throw new Error(data.error.message);var txt="";data.content.forEach(function(c){if(c.text)txt+=c.text});showQ(JSON.parse(txt.replace(/```json/g,"").replace(/```/g,"").trim()),cN)}
-  catch(err){console.error(err);var ns=aD.services.length;var hasCleanout=aD.services.some(function(s){return s.indexOf("Cleanout")>-1||s.indexOf("Property")>-1});var hasPW=aD.services.indexOf("Pressure Washing")>-1;var hasAppliance=aD.services.indexOf("Appliance Removal")>-1;var pLow=hasCleanout?350:hasPW?129:hasAppliance?125:ns>2?250:ns>0?150:120;var pHigh=hasCleanout?600:hasPW?299:hasAppliance?275:ns>2?475:ns>0?350:250;var mktAvg=Math.round(pHigh*1.35);var items=[];if(hasCleanout){items.push({item:"Cleanout labor and removal",qty:"full job",cost:"$"+Math.round(pLow*0.5)});items.push({item:"Hauling to disposal",qty:"1-2 trips",cost:"$"+Math.round(pLow*0.25)});items.push({item:"Sorting and organizing",qty:"included",cost:"$"+Math.round(pLow*0.15)});items.push({item:"Final sweep and cleanup",qty:"included",cost:"$35"})}else if(hasPW){items.push({item:"Pressure washing service",qty:"estimated area",cost:"$"+Math.round(pLow*0.7)});items.push({item:"Equipment and supplies",qty:"included",cost:"$"+Math.round(pLow*0.2)});items.push({item:"Surface treatment",qty:"included",cost:"$"+Math.round(pLow*0.1)})}else{items.push({item:"Item removal and loading",qty:aP.length+" photo(s) of items",cost:"$"+Math.round(pLow*0.45)});items.push({item:"Hauling to disposal facility",qty:"1 trip",cost:"$"+Math.round(pLow*0.25)});items.push({item:"Disposal and recycling fees",qty:"included",cost:"$"+Math.round(pLow*0.2)});items.push({item:"Site cleanup after removal",qty:"included",cost:"$35"})}showQ({price_low:pLow,price_high:pHigh,confidence:"Medium",est_hours:hasCleanout?"2-4 hours":hasPW?"1-2 hours":"1-2.5 hours",crew_size:hasCleanout?3:2,truck_loads:hasCleanout?"full truck":ns>2?"3/4 truck":"1/2 truck",line_items:items,market_avg:mktAvg,summary:"Based on your "+aP.length+" photo(s) and the services you selected ("+sL+"), this appears to be a "+( hasCleanout?"medium to large cleanout job requiring a full crew":"standard removal job our team handles regularly")+". We recommend scheduling early in the week for fastest turnaround.",scope:["Complete removal of all items shown in photos","Professional loading with care for your property","Hauling to licensed disposal facility","Recycling and donation of qualifying items","Full sweep and cleanup of cleared area","Same-day completion for standard volume"],urgency:"We have 2 crew slots remaining this week. Spring cleanout demand is running 3x normal volume right now. This quote locks your price for 48 hours before seasonal surge pricing applies.",savings_note:"Save $"+String(mktAvg-pHigh)+" vs. the $"+mktAvg+" Gulf Coast average"},cN)}
+  catch(err){console.error(err);var ns=aD.services.length;var hasCleanout=aD.services.some(function(s){return s.indexOf("Cleanout")>-1||s.indexOf("Property")>-1});var hasPW=aD.services.indexOf("Pressure Washing")>-1;var hasAppliance=aD.services.indexOf("Appliance Removal")>-1;var pLow=hasCleanout?350:hasPW?129:hasAppliance?125:ns>2?250:ns>0?150:120;var pHigh=hasCleanout?600:hasPW?299:hasAppliance?275:ns>2?475:ns>0?350:250;var pMid=Math.round((pLow+pHigh)/2);var mktAvg=Math.round(pHigh*1.35);var loadSz=hasCleanout?"4-5 pickup beds":hasPW?"n/a":ns>2?"2-3 pickup beds":ns>0?"1.5 pickup beds":"about 1 pickup bed";var items=[];if(hasCleanout){items.push({item:"Cleanout labor and removal",qty:"full job",cost:"$"+Math.round(pMid*0.45)});items.push({item:"Hauling to disposal",qty:"1-2 trips",cost:"$"+Math.round(pMid*0.25)});items.push({item:"Sorting and organizing",qty:"included",cost:"$"+Math.round(pMid*0.15)});items.push({item:"Final sweep and cleanup",qty:"included",cost:"$"+Math.round(pMid*0.1)});items.push({item:"Dump fees",qty:"included",cost:"$"+Math.round(pMid*0.05)})}else if(hasPW){items.push({item:"Pressure washing service",qty:"estimated area",cost:"$"+Math.round(pMid*0.65)});items.push({item:"Equipment and supplies",qty:"included",cost:"$"+Math.round(pMid*0.2)});items.push({item:"Surface treatment and rinse",qty:"included",cost:"$"+Math.round(pMid*0.15)})}else{items.push({item:"Item removal and loading",qty:aP.length+" photo(s) of items",cost:"$"+Math.round(pMid*0.4)});items.push({item:"Hauling to disposal",qty:"1 trip",cost:"$"+Math.round(pMid*0.25)});items.push({item:"Disposal and recycling",qty:"included",cost:"$"+Math.round(pMid*0.2)});items.push({item:"Site cleanup after removal",qty:"included",cost:"$"+Math.round(pMid*0.15)})}showQ({load_size:loadSz,price_low:pLow,price_mid:pMid,price_high:pHigh,confidence:"Medium",est_hours:hasCleanout?"2-4 hours":hasPW?"1-2 hours":"1-2.5 hours",crew_size:hasCleanout?3:2,line_items:items,labor_notes:hasCleanout?"Full cleanout — crew needs clear path to all areas. Efficiency depends on how packed the space is.":"Based on photos, appears to be standard access. Final assessment on-site.",dump_notes:"Standard household items — normal disposal fees included in quote.",photo_quality:"Fair — can estimate volume but on-site confirmation recommended for final price.",market_avg:mktAvg,summary:"Based on your "+aP.length+" photo(s) and the services you selected ("+sL+"), this looks like "+loadSz+" of material. "+(hasCleanout?"Full cleanout jobs like this typically require a 3-person crew working 2-4 hours.":"Our crew handles jobs like this regularly and can usually complete same-day.")+" Final price locked after on-site confirmation.",scope:["Complete removal of all items shown in photos","Professional loading with care for your property","Hauling to licensed disposal facility","Recycling and donation of qualifying items","Full sweep and cleanup of cleared area","Same-day completion for standard volume"],urgency:"We have 2 crew slots remaining this week. Spring cleanout demand is running 3x normal volume. This quote locks your price for 48 hours.",savings_note:"Save $"+String(mktAvg-pHigh)+" vs the $"+mktAvg+" Gulf Coast average"},cN)}
 }
 
 function showQ(q,name){
   var b=document.getElementById("aiBody");
   var confClass=q.confidence==="High"?"high":q.confidence==="Low"?"low":"med";
-  var savings=q.market_avg-q.price_high;
+  var pMid=q.price_mid||Math.round((q.price_low+q.price_high)/2);
+  var savings=q.market_avg-pMid;
+  var loadSz=q.load_size||q.truck_loads||"estimated load";
 
   /* Line items */
   var liH='<div class="qr-items"><div class="qr-items-hdr"><span>Item</span><span>Est. Cost</span></div>';
@@ -584,27 +621,44 @@ function showQ(q,name){
   liH+='</div>';
 
   /* Scope */
-  var scH="";if(q.scope){q.scope.forEach(function(s){scH+='<div class="qr-line inc"><span class="item">'+eH(s)+'</span><span class="cost">Included</span></div>'})}
+  var scH="";if(q.scope){q.scope.forEach(function(s){scH+='<div class="qr-line inc"><span class="item">'+eH(s)+'</span><span class="cost" style="color:var(--g)">Included</span></div>'})}
+
+  /* Notes sections */
+  var notesH="";
+  if(q.labor_notes){notesH+='<div style="display:flex;gap:8px;padding:8px 0;border-bottom:1px solid var(--line);font-size:0.78rem"><span style="color:var(--t3);font-family:var(--mono);font-size:0.52rem;letter-spacing:0.1em;min-width:55px;padding-top:2px">ACCESS</span><span style="color:var(--t2)">'+eH(q.labor_notes)+'</span></div>'}
+  if(q.dump_notes){notesH+='<div style="display:flex;gap:8px;padding:8px 0;border-bottom:1px solid var(--line);font-size:0.78rem"><span style="color:var(--t3);font-family:var(--mono);font-size:0.52rem;letter-spacing:0.1em;min-width:55px;padding-top:2px">DISPOSAL</span><span style="color:var(--t2)">'+eH(q.dump_notes)+'</span></div>'}
+  if(q.photo_quality){notesH+='<div style="display:flex;gap:8px;padding:8px 0;border-bottom:1px solid var(--line);font-size:0.78rem"><span style="color:var(--t3);font-family:var(--mono);font-size:0.52rem;letter-spacing:0.1em;min-width:55px;padding-top:2px">PHOTOS</span><span style="color:var(--t2)">'+eH(q.photo_quality)+'</span></div>'}
+  if(notesH){notesH='<div style="margin-bottom:20px">'+notesH+'</div>'}
 
   /* Time slots */
   var slotH='<div class="qr-slots"><h4>Available Slots</h4><div class="slot-row"><button class="slot" data-v="Tomorrow AM">Tomorrow AM</button><button class="slot" data-v="Tomorrow PM">Tomorrow PM</button><button class="slot" data-v="This Weekend">This Weekend</button><button class="slot" data-v="Next Week">Next Week</button><button class="slot" data-v="Flexible">Flexible</button></div></div>';
 
   b.innerHTML='<div class="qr">'
-    +'<div class="qr-ticker"><div class="qr-ticker-item"><div class="tv">'+eH(q.est_hours||"1-3 hrs")+'</div><div class="tk">Est. Time</div></div><div class="qr-ticker-item"><div class="tv">'+eH(String(q.crew_size||2))+'</div><div class="tk">Crew</div></div><div class="qr-ticker-item"><div class="tv">'+eH(q.truck_loads||"3/4 truck")+'</div><div class="tk">Volume</div></div><div class="qr-ticker-item"><div class="tv" style="color:var(--amber)">48hr</div><div class="tk">Price Lock</div></div></div>'
-    +'<div class="qr-price-block"><div class="qr-for">AI QUOTE FOR '+eH(name).toUpperCase()+'</div><div class="qr-price">$'+q.price_low+' <span class="qr-range">\u2014 $'+q.price_high+'</span></div><div class="qr-conf-bar"><div class="qr-conf-track"><div class="qr-conf-fill '+confClass+'"></div></div><span class="qr-conf-text '+confClass+'">'+eH(q.confidence)+' Confidence</span></div></div>'
+    /* Ticker with load size */
+    +'<div class="qr-ticker"><div class="qr-ticker-item"><div class="tv">'+eH(loadSz)+'</div><div class="tk">Load Size</div></div><div class="qr-ticker-item"><div class="tv">'+eH(q.est_hours||"1-3 hrs")+'</div><div class="tk">Est. Time</div></div><div class="qr-ticker-item"><div class="tv">'+eH(String(q.crew_size||2))+' ppl</div><div class="tk">Crew</div></div><div class="qr-ticker-item"><div class="tv" style="color:var(--amber)">48hr</div><div class="tk">Price Lock</div></div></div>'
+    /* Three-tier price */
+    +'<div class="qr-price-block"><div class="qr-for">AI QUOTE FOR '+eH(name).toUpperCase()+'</div>'
+    +'<div style="display:flex;justify-content:center;align-items:baseline;gap:24px;margin:12px 0"><div style="text-align:center"><div style="font-family:var(--mono);font-size:0.48rem;color:var(--t3);letter-spacing:0.1em;margin-bottom:4px">IF EASY</div><div style="font-family:var(--display);font-size:1.6rem;font-weight:500;color:var(--t2)">$'+q.price_low+'</div></div><div style="text-align:center"><div style="font-family:var(--mono);font-size:0.48rem;color:var(--g);letter-spacing:0.1em;margin-bottom:4px">EXPECTED</div><div class="qr-price">$'+pMid+'</div></div><div style="text-align:center"><div style="font-family:var(--mono);font-size:0.48rem;color:var(--t3);letter-spacing:0.1em;margin-bottom:4px">IF COMPLEX</div><div style="font-family:var(--display);font-size:1.6rem;font-weight:500;color:var(--t2)">$'+q.price_high+'</div></div></div>'
+    +'<div class="qr-conf-bar"><div class="qr-conf-track"><div class="qr-conf-fill '+confClass+'"></div></div><span class="qr-conf-text '+confClass+'">'+eH(q.confidence)+' Confidence</span></div></div>'
+    /* Summary */
     +'<div class="qr-summary">'+eH(q.summary)+'</div>'
+    /* Assessment notes */
+    +notesH
+    /* Line items */
     +liH
-    +'<div class="qr-items" style="margin-bottom:20px"><div class="qr-items-hdr"><span>Included</span><span></span></div>'+scH+'</div>'
-    +'<div class="qr-savings"><div class="sav-text">Gulf Coast avg: <strong>$'+q.market_avg+'</strong>. '+(q.savings_note?eH(q.savings_note):'You save with Scout Goat.')+'</div><div class="sav-amt">-$'+savings+'</div></div>'
+    +'<div class="qr-items" style="margin-bottom:20px"><div class="qr-items-hdr"><span>Included in Quote</span><span></span></div>'+scH+'</div>'
+    /* Savings */
+    +'<div class="qr-savings"><div class="sav-text"><strong>$'+q.market_avg+'</strong> Gulf Coast avg. '+(q.savings_note?eH(q.savings_note):'')+'</div><div class="sav-amt">-$'+savings+'</div></div>'
+    /* Urgency */
     +'<div class="qr-urg"><strong>&#9889; '+eH(q.urgency)+'</strong></div>'
+    /* Time slots */
     +slotH
+    /* Actions */
     +'<div class="qr-acts" id="qA"><button class="btn-g" id="bkB" style="text-align:center;justify-content:center">Book This Job &#8594;</button><button class="btn-o" id="clB" style="text-align:center">Call to Discuss</button></div>'
     +'<div class="qr-fine">FINAL PRICE CONFIRMED ON-SITE &bull; NO OBLIGATION UNTIL WORK BEGINS</div>'
     +'</div>';
 
-  /* Slot selection */
   document.querySelectorAll(".slot").forEach(function(s){s.addEventListener("click",function(){document.querySelectorAll(".slot").forEach(function(x){x.classList.remove("on")});this.classList.add("on")})});
-
   document.getElementById("bkB").addEventListener("click",function(){document.getElementById("qA").innerHTML='<div class="booked"><span style="font-size:2rem">&#10003;</span><h3>Booked.</h3><p>Crew member will call '+eH(aD.phone)+' to confirm.</p></div>'});
   document.getElementById("clB").addEventListener("click",function(){window.location.href="tel:+12515551234"});
   for(var i=0;i<3;i++)document.getElementById("pip"+i).className="ai-pip done";
